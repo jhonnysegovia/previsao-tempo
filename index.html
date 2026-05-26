@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Previsão do Tempo — Jardim Conceição, Osasco</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg:     #0f172a;
+      --card:   #1e293b;
+      --border: #334155;
+      --accent: #38bdf8;
+      --warm:   #fb923c;
+      --cool:   #7dd3fc;
+      --rain:   #60a5fa;
+      --text:   #f1f5f9;
+      --muted:  #94a3b8;
+      --radius: 12px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      padding: 20px 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .header-titulo {
+      font-size: 1.4rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-titulo i { color: var(--accent); }
+
+    .header-subtitulo { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
+
+    .header-direita {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    #relogio {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+
+    #ultima-atualizacao { color: var(--muted); font-size: 0.8rem; }
+
+    .btn-atualizar {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      padding: 8px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-atualizar:hover { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+    .btn-atualizar.carregando i { animation: girar 0.9s linear infinite; }
+
+    @keyframes girar { to { transform: rotate(360deg); } }
+
+    /* ── Banner de erro ── */
+    .banner-erro {
+      display: none;
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.35);
+      border-radius: var(--radius);
+      padding: 12px 18px;
+      color: #fca5a5;
+      margin-bottom: 20px;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.9rem;
+    }
+    .banner-erro.visivel { display: flex; }
+
+    /* ── Grid principal ── */
+    .grid-principal {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 700px) { .grid-principal { grid-template-columns: 1fr; } }
+
+    /* ── Cards base ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-titulo {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    /* ── Tempo atual ── */
+    .tempo-atual-conteudo {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    #cw-icone { font-size: 5rem; min-width: 80px; text-align: center; line-height: 1; }
+    #cw-temp  { font-size: 4rem; font-weight: 200; line-height: 1; }
+    #cw-temp sup { font-size: 1.6rem; font-weight: 400; vertical-align: super; }
+    #cw-descricao { color: var(--muted); font-size: 1rem; margin-top: 6px; }
+    #cw-sensacao  { color: var(--cool); font-size: 0.88rem; margin-top: 8px; }
+
+    /* ── Métricas ── */
+    .grid-metricas {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .metrica {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .metrica-icone { font-size: 1.3rem; width: 32px; text-align: center; }
+    .metrica-valor { font-size: 1.1rem; font-weight: 600; }
+    .metrica-label { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+
+    /* ── Seletor de período ── */
+    .seletor-periodo {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .periodo-label { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+    .botoes-periodo { display: flex; gap: 8px; }
+
+    .btn-periodo {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn-periodo.ativo,
+    .btn-periodo:hover { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+
+    .datas-customizadas {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      flex-wrap: wrap;
+    }
+    .datas-customizadas span { color: var(--muted); font-size: 0.85rem; }
+
+    .datas-customizadas input[type="date"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .datas-customizadas input[type="date"]:focus { outline: none; border-color: var(--accent); }
+    .datas-customizadas input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
+
+    /* ── Gráficos ── */
+    .grid-graficos {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 850px) { .grid-graficos { grid-template-columns: 1fr; } }
+
+    .grafico-container { position: relative; height: 240px; }
+
+    /* ── Previsão 7 dias ── */
+    .previsao-semana {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 10px;
+    }
+    @media (max-width: 900px) { .previsao-semana { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 480px) { .previsao-semana { grid-template-columns: repeat(2, 1fr); } }
+
+    .card-dia {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 10px;
+      text-align: center;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .card-dia:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(0,0,0,0.5); }
+    .card-dia.hoje  { border-color: var(--accent); background: rgba(56,189,248,0.07); }
+
+    .dia-nome  { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+    .dia-data  { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+    .dia-icone { font-size: 1.9rem; margin: 10px 0 6px; }
+    .dia-max   { font-size: 1.1rem; font-weight: 700; color: var(--warm); }
+    .dia-min   { font-size: 0.9rem; color: var(--cool); margin-top: 2px; }
+    .dia-chuva { font-size: 0.72rem; color: var(--rain); margin-top: 6px; }
+    .dia-prob  { font-size: 0.72rem; color: var(--accent); margin-top: 4px; }
+
+    /* ── Loading overlay ── */
+    #loading-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,0.88);
+      z-index: 200;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+    }
+    #loading-overlay.visivel { display: flex; }
+    .spinner { font-size: 2.5rem; color: var(--accent); animation: girar 0.9s linear infinite; }
+    .loading-texto { color: var(--muted); font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+<!-- Overlay de carregamento -->
+<div id="loading-overlay">
+  <i class="fas fa-circle-notch spinner"></i>
+  <span class="loading-texto">Buscando dados meteorológicos...</span>
+</div>
+
+<!-- Header -->
+<header>
+  <div>
+    <div class="header-titulo">
+      <i class="fas fa-location-dot"></i>
+      Jardim Conceição — Osasco, SP
+    </div>
+    <div class="header-subtitulo">Previsão do Tempo em tempo real · Open-Meteo API</div>
+  </div>
+  <div class="header-direita">
+    <span id="relogio">--:--:--</span>
+    <span id="ultima-atualizacao">—</span>
+    <button class="btn-atualizar" id="btn-atualizar" onclick="carregarDados()">
+      <i class="fas fa-arrows-rotate"></i> Atualizar
+    </button>
+  </div>
+</header>
+
+<!-- Banner de erro -->
+<div class="banner-erro" id="banner-erro">
+  <i class="fas fa-triangle-exclamation"></i>
+  <span id="msg-erro">Falha ao carregar dados.</span>
+</div>
+
+<!-- Grid principal: tempo atual + métricas -->
+<div class="grid-principal">
+
+  <div class="card">
+    <div class="card-titulo"><i class="fas fa-satellite-dish"></i> Condições Atuais</div>
+    <div class="tempo-atual-conteudo">
+      <div id="cw-icone"><i class="fas fa-circle-notch fa-spin" style="color:var(--muted)"></i></div>
+      <div>
+        <div id="cw-temp">—<sup>°C</sup></div>
+        <div id="cw-descricao">Carregando...</div>
+        <div id="cw-sensacao"><i class="fas fa-temperature-half"></i> Sensação: —°C</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-titulo"><i class="fas fa-gauge-high"></i> Detalhes do Momento</div>
+    <div class="grid-metricas">
+      <div class="metrica">
+        <span class="metrica-icone" style="color:var(--rain)"><i class="fas fa-droplet"></i></span>
+        <div><div class="metrica-valor" id="m-umidade">—</div><div class="metrica-label">Umidade</div></div>
+      </div>
+      <div class="metrica">
+        <span class="metrica-icone" style="color:var(--cool)"><i class="fas fa-wind"></i></span>
+        <div><div class="metrica-valor" id="m-vento">—</div><div class="metrica-label">Vento</div></div>
+      </div>
+      <div class="metrica">
+        <span class="metrica-icone" style="color:var(--accent)"><i class="fas fa-cloud-rain"></i></span>
+        <div><div class="metrica-valor" id="m-precip">—</div><div class="metrica-label">Precipitação (1h)</div></div>
+      </div>
+      <div class="metrica">
+        <span class="metrica-icone" style="color:var(--warm)"><i class="fas fa-sun"></i></span>
+        <div><div class="metrica-valor" id="m-sol">—</div><div class="metrica-label">Nascer / Pôr do sol</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Seletor de período -->
+<div class="seletor-periodo">
+  <span class="periodo-label"><i class="fas fa-calendar-days"></i> Período dos gráficos:</span>
+  <div class="botoes-periodo">
+    <button class="btn-periodo ativo" onclick="definirPeriodo('hoje', this)">Hoje</button>
+    <button class="btn-periodo" onclick="definirPeriodo('3dias', this)">3 Dias</button>
+    <button class="btn-periodo" onclick="definirPeriodo('7dias', this)">7 Dias</button>
+  </div>
+  <div class="datas-customizadas">
+    <span>De</span>
+    <input type="date" id="data-inicio" onchange="definirPeriodoCustom()">
+    <span>até</span>
+    <input type="date" id="data-fim" onchange="definirPeriodoCustom()">
+  </div>
+</div>
+
+<!-- Gráficos -->
+<div class="grid-graficos">
+  <div class="card">
+    <div class="card-titulo"><i class="fas fa-temperature-half"></i> Temperatura (°C)</div>
+    <div class="grafico-container"><canvas id="grafico-temperatura"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-titulo"><i class="fas fa-cloud-rain"></i> Precipitação (mm)</div>
+    <div class="grafico-container"><canvas id="grafico-chuva"></canvas></div>
+  </div>
+</div>
+
+<!-- Previsão 7 dias -->
+<div class="card" style="margin-bottom:20px">
+  <div class="card-titulo"><i class="fas fa-calendar-week"></i> Previsão para os Próximos 7 Dias</div>
+  <div class="previsao-semana" id="previsao-semana"></div>
+</div>
+
+<script>
+// ── Configuração ──────────────────────────────────────────
+const LAT   = -23.5329;
+const LON   = -46.7920;
+const FUSO  = 'America/Sao_Paulo';
+const API   = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}`
+            + `&hourly=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,wind_speed_10m,weathercode`
+            + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode,sunrise,sunset`
+            + `&timezone=${encodeURIComponent(FUSO)}&forecast_days=7`;
+
+let graficoTemp  = null;
+let graficoChuva = null;
+let dadosAPI     = null;
+let periodoAtivo = 'hoje';
+
+// ── Mapa de códigos WMO ───────────────────────────────────
+const WMO = {
+  0:  { i: 'fa-sun',                 d: 'Céu limpo',             c: '#fbbf24' },
+  1:  { i: 'fa-sun',                 d: 'Principalmente limpo',  c: '#fbbf24' },
+  2:  { i: 'fa-cloud-sun',           d: 'Parcialmente nublado',  c: '#94a3b8' },
+  3:  { i: 'fa-cloud',               d: 'Nublado',               c: '#94a3b8' },
+  45: { i: 'fa-smog',                d: 'Neblina',               c: '#94a3b8' },
+  48: { i: 'fa-smog',                d: 'Neblina com geada',     c: '#94a3b8' },
+  51: { i: 'fa-cloud-drizzle',       d: 'Garoa fraca',           c: '#60a5fa' },
+  53: { i: 'fa-cloud-drizzle',       d: 'Garoa moderada',        c: '#60a5fa' },
+  55: { i: 'fa-cloud-drizzle',       d: 'Garoa intensa',         c: '#60a5fa' },
+  61: { i: 'fa-cloud-rain',          d: 'Chuva fraca',           c: '#60a5fa' },
+  63: { i: 'fa-cloud-rain',          d: 'Chuva moderada',        c: '#3b82f6' },
+  65: { i: 'fa-cloud-showers-heavy', d: 'Chuva forte',           c: '#1d4ed8' },
+  71: { i: 'fa-snowflake',           d: 'Neve fraca',            c: '#e2e8f0' },
+  73: { i: 'fa-snowflake',           d: 'Neve moderada',         c: '#e2e8f0' },
+  75: { i: 'fa-snowflake',           d: 'Neve intensa',          c: '#e2e8f0' },
+  80: { i: 'fa-cloud-rain',          d: 'Pancadas fracas',       c: '#60a5fa' },
+  81: { i: 'fa-cloud-showers-heavy', d: 'Pancadas moderadas',    c: '#3b82f6' },
+  82: { i: 'fa-cloud-showers-heavy', d: 'Pancadas intensas',     c: '#1d4ed8' },
+  95: { i: 'fa-bolt',               d: 'Trovoada',              c: '#facc15' },
+  96: { i: 'fa-bolt',               d: 'Trovoada com granizo',  c: '#facc15' },
+  99: { i: 'fa-bolt',               d: 'Trovoada intensa',      c: '#facc15' },
+};
+const wmo = cod => WMO[cod] || { i: 'fa-cloud', d: 'Desconhecido', c: '#94a3b8' };
+
+// ── Helpers de data ───────────────────────────────────────
+const DIAS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+// Retorna data atual no fuso SP como "yyyy-MM-dd"
+function hojeStr() {
+  return new Date().toLocaleDateString('sv-SE', { timeZone: FUSO });
+}
+
+// Soma n dias a uma string "yyyy-MM-dd" e retorna outra string no mesmo formato
+function somarDias(dataStr, n) {
+  const [y, m, d] = dataStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d + n, 12);
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+}
+
+// ── Relógio em tempo real ─────────────────────────────────
+setInterval(() => {
+  document.getElementById('relogio').textContent =
+    new Date().toLocaleTimeString('pt-BR', { timeZone: FUSO, hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}, 1000);
+
+// ── Busca de dados ────────────────────────────────────────
+async function carregarDados() {
+  const btn    = document.getElementById('btn-atualizar');
+  const loader = document.getElementById('loading-overlay');
+  const banner = document.getElementById('banner-erro');
+
+  btn.classList.add('carregando');
+  loader.classList.add('visivel');
+  banner.classList.remove('visivel');
+
+  try {
+    const res = await fetch(API);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    dadosAPI = await res.json();
+
+    renderizarTempoAtual();
+    renderizarPrevisaoSemanal();
+    atualizarGraficos();
+
+    document.getElementById('ultima-atualizacao').textContent =
+      'Atualizado às ' + new Date().toLocaleTimeString('pt-BR', { timeZone: FUSO, hour:'2-digit', minute:'2-digit' });
+
+  } catch (e) {
+    console.error(e);
+    document.getElementById('msg-erro').textContent =
+      `Não foi possível carregar os dados. (${e.message}) — Próxima tentativa em 30 min.`;
+    banner.classList.add('visivel');
+  } finally {
+    btn.classList.remove('carregando');
+    loader.classList.remove('visivel');
+  }
+}
+
+// ── Índice da hora atual no array horário ─────────────────
+function indiceHoraAtual(tempos) {
+  const agora  = new Date();
+  const partes = new Intl.DateTimeFormat('en-US', {
+    timeZone: FUSO, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', hour12: false
+  }).formatToParts(agora);
+  const g      = t => partes.find(p => p.type === t).value;
+  const str    = `${g('year')}-${g('month')}-${g('day')}T${g('hour')}:00`;
+  const idx    = tempos.findIndex(t => t === str);
+  return idx >= 0 ? idx : 0;
+}
+
+// ── Renderizar tempo atual ────────────────────────────────
+function renderizarTempoAtual() {
+  const { hourly, daily } = dadosAPI;
+  const idx = indiceHoraAtual(hourly.time);
+  const w   = wmo(hourly.weathercode[idx]);
+
+  document.getElementById('cw-icone').innerHTML    = `<i class="fas ${w.i}" style="color:${w.c}"></i>`;
+  document.getElementById('cw-temp').innerHTML     = `${Math.round(hourly.temperature_2m[idx])}<sup>°C</sup>`;
+  document.getElementById('cw-descricao').textContent = w.d;
+  document.getElementById('cw-sensacao').innerHTML =
+    `<i class="fas fa-temperature-half"></i> Sensação: ${Math.round(hourly.apparent_temperature[idx])}°C`;
+
+  document.getElementById('m-umidade').textContent = `${hourly.relative_humidity_2m[idx]}%`;
+  document.getElementById('m-vento').textContent   = `${Math.round(hourly.wind_speed_10m[idx])} km/h`;
+  document.getElementById('m-precip').textContent  = `${hourly.precipitation[idx].toFixed(1)} mm`;
+
+  // Sunrise/sunset já vêm no fuso local da API: "2024-05-25T05:53"
+  const nascer = daily.sunrise[0].split('T')[1];
+  const por    = daily.sunset[0].split('T')[1];
+  document.getElementById('m-sol').textContent = `${nascer} / ${por}`;
+}
+
+// ── Renderizar previsão semanal ───────────────────────────
+function renderizarPrevisaoSemanal() {
+  const { daily } = dadosAPI;
+  const hoje      = hojeStr();
+  const container = document.getElementById('previsao-semana');
+  container.innerHTML = '';
+
+  daily.time.forEach((dataStr, i) => {
+    const [y, m, d] = dataStr.split('-').map(Number);
+    const nomeDia   = DIAS[new Date(y, m-1, d, 12).getDay()];
+    const dataCurta = `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}`;
+    const w         = wmo(daily.weathercode[i]);
+    const max       = Math.round(daily.temperature_2m_max[i]);
+    const min       = Math.round(daily.temperature_2m_min[i]);
+    const chuva     = parseFloat(daily.precipitation_sum[i].toFixed(1));
+    const probChuva = daily.precipitation_probability_max[i];
+
+    const card = document.createElement('div');
+    card.className = 'card-dia' + (dataStr === hoje ? ' hoje' : '');
+    card.innerHTML = `
+      <div class="dia-nome">${nomeDia}</div>
+      <div class="dia-data">${dataCurta}</div>
+      <div class="dia-icone" style="color:${w.c}"><i class="fas ${w.i}"></i></div>
+      <div class="dia-max">${max}°</div>
+      <div class="dia-min">${min}°</div>
+      ${chuva > 0 ? `<div class="dia-chuva"><i class="fas fa-droplet"></i> ${chuva}mm</div>` : ''}
+      ${probChuva > 0 ? `<div class="dia-prob"><i class="fas fa-umbrella"></i> ${probChuva}%</div>` : ''}
+    `;
+    container.appendChild(card);
+  });
+}
+
+// ── Filtrar dados horários pelo período ──────────────────
+function filtrarDados() {
+  if (!dadosAPI) return { labels:[], temps:[], sensacao:[], chuva:[] };
+  const { hourly } = dadosAPI;
+  const tempos     = hourly.time;
+  const hoje       = hojeStr();
+  let inicio, fim;
+
+  const di = document.getElementById('data-inicio').value;
+  const df = document.getElementById('data-fim').value;
+
+  if (periodoAtivo === 'custom' && di && df) {
+    inicio = di + 'T00:00';
+    fim    = df + 'T23:00';
+  } else if (periodoAtivo === 'hoje') {
+    inicio = hoje + 'T00:00';
+    fim    = hoje + 'T23:00';
+  } else if (periodoAtivo === '3dias') {
+    inicio = hoje + 'T00:00';
+    fim    = somarDias(hoje, 2) + 'T23:00';
+  } else {
+    inicio = tempos[0];
+    fim    = tempos[tempos.length - 1];
+  }
+
+  const passo = periodoAtivo === '7dias' ? 3 : 1;
+
+  const resultado = tempos.reduce((acc, t, i) => {
+    if (t >= inicio && t <= fim) acc.push(i);
+    return acc;
+  }, [])
+  .filter((_, pos) => pos % passo === 0)
+  .map(i => ({
+    label:    formatarLabel(tempos[i]),
+    temp:     hourly.temperature_2m[i],
+    sensacao: hourly.apparent_temperature[i],
+    chuva:    hourly.precipitation[i],
+  }));
+
+  return {
+    labels:   resultado.map(r => r.label),
+    temps:    resultado.map(r => r.temp),
+    sensacao: resultado.map(r => r.sensacao),
+    chuva:    resultado.map(r => r.chuva),
+  };
+}
+
+// Formata "2024-05-25T14:00" → label legível para o eixo X
+function formatarLabel(isoStr) {
+  const [datePart, timePart] = isoStr.split('T');
+  const hora = timePart.slice(0, 5);
+  if (periodoAtivo === 'hoje') return hora;
+  const [y, m, d] = datePart.split('-').map(Number);
+  return `${DIAS[new Date(y, m-1, d, 12).getDay()]} ${hora}`;
+}
+
+// ── Criar/atualizar gráficos ──────────────────────────────
+function atualizarGraficos() {
+  const d = filtrarDados();
+  if (graficoTemp)  { graficoTemp.destroy();  graficoTemp  = null; }
+  if (graficoChuva) { graficoChuva.destroy(); graficoChuva = null; }
+
+  const pontos = d.labels.length <= 30;
+
+  const base = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+      tooltip: {
+        backgroundColor: '#1e293b', borderColor: '#334155', borderWidth: 1,
+        titleColor: '#f1f5f9', bodyColor: '#94a3b8', padding: 10,
+      },
+    },
+    scales: {
+      x: {
+        ticks: { color: '#94a3b8', maxRotation: 45, font: { size: 10 }, maxTicksLimit: 12 },
+        grid:  { color: 'rgba(51,65,85,0.4)' },
+      },
+      y: {
+        ticks: { color: '#94a3b8', font: { size: 11 } },
+        grid:  { color: 'rgba(51,65,85,0.4)' },
+      },
+    },
+  };
+
+  graficoTemp = new Chart(document.getElementById('grafico-temperatura'), {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        {
+          label: 'Temperatura (°C)',
+          data: d.temps,
+          borderColor: '#fb923c',
+          backgroundColor: 'rgba(251,146,60,0.12)',
+          fill: true, tension: 0.4,
+          pointRadius: pontos ? 3 : 0, pointHoverRadius: 5,
+        },
+        {
+          label: 'Sensação Térmica (°C)',
+          data: d.sensacao,
+          borderColor: '#7dd3fc',
+          backgroundColor: 'transparent',
+          fill: false, tension: 0.4, borderDash: [5, 4],
+          pointRadius: pontos ? 3 : 0, pointHoverRadius: 5,
+        },
+      ],
+    },
+    options: {
+      ...base,
+      scales: { ...base.scales, y: { ...base.scales.y, ticks: { ...base.scales.y.ticks, callback: v => `${v}°` } } },
+    },
+  });
+
+  graficoChuva = new Chart(document.getElementById('grafico-chuva'), {
+    type: 'bar',
+    data: {
+      labels: d.labels,
+      datasets: [{
+        label: 'Precipitação (mm)',
+        data: d.chuva,
+        backgroundColor: 'rgba(96,165,250,0.65)',
+        borderColor: '#3b82f6', borderWidth: 1, borderRadius: 2,
+      }],
+    },
+    options: {
+      ...base,
+      scales: { ...base.scales, y: { ...base.scales.y, min: 0, ticks: { ...base.scales.y.ticks, callback: v => `${v}mm` } } },
+    },
+  });
+}
+
+// ── Controles de período ──────────────────────────────────
+function definirPeriodo(periodo, botao) {
+  periodoAtivo = periodo;
+  document.querySelectorAll('.btn-periodo').forEach(b => b.classList.remove('ativo'));
+  if (botao) botao.classList.add('ativo');
+
+  const hoje = hojeStr();
+  document.getElementById('data-inicio').value = hoje;
+
+  if (periodo === 'hoje') {
+    document.getElementById('data-fim').value = hoje;
+  } else if (periodo === '3dias') {
+    document.getElementById('data-fim').value = somarDias(hoje, 2);
+  } else if (periodo === '7dias' && dadosAPI) {
+    document.getElementById('data-inicio').value = dadosAPI.daily.time[0];
+    document.getElementById('data-fim').value    = dadosAPI.daily.time[dadosAPI.daily.time.length - 1];
+  }
+
+  if (dadosAPI) atualizarGraficos();
+}
+
+function definirPeriodoCustom() {
+  const di = document.getElementById('data-inicio').value;
+  const df = document.getElementById('data-fim').value;
+  if (!di || !df) return;
+  periodoAtivo = 'custom';
+  document.querySelectorAll('.btn-periodo').forEach(b => b.classList.remove('ativo'));
+  if (dadosAPI) atualizarGraficos();
+}
+
+// ── Inicialização ─────────────────────────────────────────
+function inicializar() {
+  const hoje   = hojeStr();
+  const maxStr = somarDias(hoje, 6);
+  const di     = document.getElementById('data-inicio');
+  const df     = document.getElementById('data-fim');
+
+  di.min = hoje; di.max = maxStr; di.value = hoje;
+  df.min = hoje; df.max = maxStr; df.value = hoje;
+
+  carregarDados();
+  setInterval(carregarDados, 30 * 60 * 1000);
+}
+
+inicializar();
+</script>
+</body>
+</html>
