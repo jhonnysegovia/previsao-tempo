@@ -253,6 +253,36 @@
     .dia-chuva { font-size: 0.72rem; color: var(--rain); margin-top: 6px; }
     .dia-prob  { font-size: 0.72rem; color: var(--accent); margin-top: 4px; }
 
+    /* ── Recomendação de Roupa ── */
+    .roupa-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .roupa-icone-situacao { font-size: 2.2rem; width: 48px; text-align: center; flex-shrink: 0; line-height: 1; }
+    .roupa-situacao-nome  { font-size: 1.05rem; font-weight: 700; }
+    .roupa-descricao      { font-size: 0.82rem; color: var(--muted); margin-top: 3px; }
+
+    .roupa-itens { display: flex; flex-wrap: wrap; gap: 10px; }
+
+    .roupa-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 14px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: background 0.15s;
+    }
+    .roupa-item:hover { background: rgba(255,255,255,0.09); }
+    .roupa-item i { font-size: 1.05rem; }
+
     /* ── Loading overlay ── */
     #loading-overlay {
       display: none;
@@ -341,6 +371,14 @@
 
 </div>
 
+<!-- Recomendação de Roupa -->
+<div class="card" id="roupa-card" style="margin-bottom:20px">
+  <div class="card-titulo"><i class="fas fa-shirt"></i> O que Vestir Agora</div>
+  <div id="roupa-conteudo">
+    <div style="color:var(--muted);font-size:0.88rem">Carregando recomendação...</div>
+  </div>
+</div>
+
 <!-- Seletor de período -->
 <div class="seletor-periodo">
   <span class="periodo-label"><i class="fas fa-calendar-days"></i> Período dos gráficos:</span>
@@ -389,6 +427,90 @@ let graficoTemp  = null;
 let graficoChuva = null;
 let dadosAPI     = null;
 let periodoAtivo = 'hoje';
+
+// ── Tabela de sugestão de roupas por faixa de temperatura ─
+const ROUPAS = [
+  {
+    tempMin: 34, tempMax: 60,
+    situacao: 'Calor Extremo',
+    cor: '#ef4444',
+    icone: 'fa-temperature-arrow-up',
+    descricao: 'Tá pegando fogo! Vista o mínimo.',
+    itens: [
+      { icone: 'fa-shirt',          cor: '#fb923c', nome: 'Camiseta' },
+      { icone: 'fa-person-walking', cor: '#94a3b8', nome: 'Bermuda' },
+      { icone: 'fa-shoe-prints',    cor: '#a3a3a3', nome: 'Chinelo' },
+    ],
+  },
+  {
+    tempMin: 28, tempMax: 33,
+    situacao: 'Muito Quente',
+    cor: '#f97316',
+    icone: 'fa-sun',
+    descricao: 'Bastante calor — roupas bem leves.',
+    itens: [
+      { icone: 'fa-shirt',          cor: '#fb923c', nome: 'Camiseta' },
+      { icone: 'fa-person-walking', cor: '#94a3b8', nome: 'Bermuda' },
+      { icone: 'fa-socks',          cor: '#94a3b8', nome: 'Meias' },
+      { icone: 'fa-shoe-prints',    cor: '#a3a3a3', nome: 'Tênis' },
+    ],
+  },
+  {
+    tempMin: 22, tempMax: 27,
+    situacao: 'Quente',
+    cor: '#fbbf24',
+    icone: 'fa-cloud-sun',
+    descricao: 'Temperatura boa — roupas leves.',
+    itens: [
+      { icone: 'fa-shirt',          cor: '#fb923c', nome: 'Camiseta' },
+      { icone: 'fa-person-walking', cor: '#60a5fa', nome: 'Jeans' },
+      { icone: 'fa-socks',          cor: '#94a3b8', nome: 'Meias' },
+      { icone: 'fa-shoe-prints',    cor: '#a3a3a3', nome: 'Tênis' },
+    ],
+  },
+  {
+    tempMin: 18, tempMax: 21,
+    situacao: 'Agradável',
+    cor: '#38bdf8',
+    icone: 'fa-cloud',
+    descricao: 'Temperatura confortável — à vontade.',
+    itens: [
+      { icone: 'fa-shirt',          cor: '#fb923c', nome: 'Camisa' },
+      { icone: 'fa-person-walking', cor: '#60a5fa', nome: 'Jeans' },
+      { icone: 'fa-socks',          cor: '#94a3b8', nome: 'Meias' },
+      { icone: 'fa-shoe-prints',    cor: '#a3a3a3', nome: 'Tênis' },
+    ],
+  },
+  {
+    tempMin: 14, tempMax: 17,
+    situacao: 'Fresco',
+    cor: '#7dd3fc',
+    icone: 'fa-wind',
+    descricao: 'Leve friozinho — vale um agasalho.',
+    itens: [
+      { icone: 'fa-shirt',          cor: '#fb923c', nome: 'Camisa' },
+      { icone: 'fa-shirt',          cor: '#818cf8', nome: 'Blusa Moleton' },
+      { icone: 'fa-person-walking', cor: '#60a5fa', nome: 'Jeans' },
+      { icone: 'fa-socks',          cor: '#94a3b8', nome: 'Meias' },
+      { icone: 'fa-shoe-prints',    cor: '#a3a3a3', nome: 'Tênis' },
+    ],
+  },
+  {
+    tempMin: -50, tempMax: 13,
+    situacao: 'Frio',
+    cor: '#818cf8',
+    icone: 'fa-snowflake',
+    descricao: 'Frio de verdade — se agasalhe bem!',
+    itens: [
+      { icone: 'fa-shirt',          cor: '#fb923c', nome: 'Camiseta' },
+      { icone: 'fa-shirt',          cor: '#60a5fa', nome: 'Camisa' },
+      { icone: 'fa-shirt',          cor: '#818cf8', nome: 'Blusa Moleton' },
+      { icone: 'fa-person-walking', cor: '#7dd3fc', nome: 'Calça Moleton' },
+      { icone: 'fa-socks',          cor: '#94a3b8', nome: 'Meias' },
+      { icone: 'fa-shoe-prints',    cor: '#a3a3a3', nome: 'Tênis' },
+    ],
+  },
+];
 
 // ── Mapa de códigos WMO ───────────────────────────────────
 const WMO = {
@@ -502,6 +624,34 @@ function renderizarTempoAtual() {
   const nascer = daily.sunrise[0].split('T')[1];
   const por    = daily.sunset[0].split('T')[1];
   document.getElementById('m-sol').textContent = `${nascer} / ${por}`;
+
+  renderizarRoupa(hourly.temperature_2m[idx]);
+}
+
+// ── Sugestão de roupa baseada na temperatura atual ────────
+function renderizarRoupa(temp) {
+  const rec = ROUPAS.find(r => temp >= r.tempMin && temp <= r.tempMax);
+  if (!rec) return;
+
+  const chips = rec.itens.map(item =>
+    `<div class="roupa-item">
+       <i class="fas ${item.icone}" style="color:${item.cor}"></i>
+       <span>${item.nome}</span>
+     </div>`
+  ).join('');
+
+  document.getElementById('roupa-conteudo').innerHTML = `
+    <div class="roupa-header">
+      <div class="roupa-icone-situacao">
+        <i class="fas ${rec.icone}" style="color:${rec.cor}"></i>
+      </div>
+      <div>
+        <div class="roupa-situacao-nome" style="color:${rec.cor}">${rec.situacao}</div>
+        <div class="roupa-descricao">${rec.descricao} &nbsp;·&nbsp; ${Math.round(temp)}°C agora</div>
+      </div>
+    </div>
+    <div class="roupa-itens">${chips}</div>
+  `;
 }
 
 // ── Renderizar previsão semanal ───────────────────────────
